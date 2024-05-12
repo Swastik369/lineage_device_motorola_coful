@@ -1,0 +1,32 @@
+import /vendor/etc/init/hw/init.mmi.backup.trustlet.rc
+
+#insmod usbnet.ko when on factory mode
+on early-init && property:ro.boot.atm=enable && property:ro.bootmode=mot-factory
+    insmod /vendor/lib/modules/moto_f_usbnet.ko
+
+on boot
+    # change permission for vibrator
+    chmod 0660 /sys/class/leds/vibrator/activate
+    chmod 0660 /sys/class/leds/vibrator/duration
+    chmod 0660 /sys/class/leds/vibrator/state
+    chmod 0660 /sys/class/leds/vibrator/brightness
+   # Set adaptive charging perms for HAL
+   chown system system /sys/module/qpnp_adaptive_charge/parameters/upper_limit
+   chown system system /sys/module/qpnp_adaptive_charge/parameters/lower_limit
+
+on early-init
+    insmod /vendor/lib/modules/mmi_info.ko
+    insmod /vendor/lib/modules/qpnp_adaptive_charge.ko
+
+on post-fs-data
+    # for batt_health server
+    mkdir /mnt/vendor/persist/batt_health 0770 vendor_pwric vendor_pwric
+on property:sys.boot_completed=1
+    start vendor.batt_health
+on charger
+    start vendor.batt_health
+service vendor.batt_health /vendor/bin/batt_health
+    class late_start
+    user vendor_pwric
+    group vendor_pwric cache net_admin log
+    disabled

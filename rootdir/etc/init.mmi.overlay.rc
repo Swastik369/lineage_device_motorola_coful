@@ -1,0 +1,118 @@
+on early-init
+   insmod /vendor/lib/modules/sensors_class.ko
+   insmod /vendor/lib/modules/bq2597x_mmi.ko
+   insmod /vendor/lib/modules/fs16xx_dlkm.ko
+
+   exec_background u:r:vendor_modprobe:s0 -- /vendor/bin/modprobe -a -d /vendor/lib/modules exfat.ko abov_sar_mmi_overlay_7ch.ko aw9610x.ko mmi_parallel_charger.ko focaltech_mtk_v2_mmi.ko goodix_mtk_gtx8_mmi.ko goodix_mtk_gtx8_ts_tools_mmi.ko goodix_mtk_gtx8_gesture_mmi.ko
+
+on property:ro.build.type=user
+   setprop sys.init_log_level 4
+
+on init
+   # Change ownership for for HBM feature
+   chown system system /sys/class/graphics/fb0/hbm
+
+on late-init
+    #moto algo params
+    chmod 0660 /sys/bus/platform/drivers/mtk_nanohub/algo_params
+    chown system system /sys/bus/platform/drivers/mtk_nanohub/algo_params
+    chown system system /dev/input/event2
+    chown system system /dev/input/event3
+    chown system system /dev/input/event4
+    chown system system /dev/input/event5
+    chown system system /dev/input/event6
+
+# MTK platform sensor
+on post-fs-data
+    # calibration
+    mkdir /data/vendor/sensor 0774 system system
+    # Sensor
+    chmod 0660 /dev/hf_manager
+    chown system system /dev/hf_manager
+    # Change ownership and permission for sensor algo
+    chmod 0660 /sys/class/sensor/m_situ_misc/situparams
+    chown system system /sys/class/sensor/m_situ_misc/situparams
+    chmod 0660 /sys/class/sensor/m_situ_misc/situproxcal
+    chown system system /sys/class/sensor/m_situ_misc/situproxcal
+    # config fingerprint
+    mkdir /data/vendor/.fps 0770 system vendor_fingerp
+    mkdir /mnt/vendor/persist/fps 0770 system system
+on boot
+   # change permission for capsensor
+   chmod 0660 /sys/class/capsense/reset
+   chown system system /sys/class/capsense/reset
+   chown radio system /sys/class/capsense/reg
+   chown radio system /sys/class/capsense/fw_download_status
+   chmod 0660 /sys/class/capsense/reg
+   chmod 0660 /sys/class/capsense/fw_download_status
+
+   chown system system /sys/class/sensors/capsense_bottom/enable
+   chown system system /sys/class/sensors/capsense_bottom/poll_delay
+   chown system system /sys/class/sensors/capsense_top/enable
+   chown system system /sys/class/sensors/capsense_top/poll_delay
+   chown system system /sys/class/capsense/int_state
+
+   # change permission for nfc
+   chown nfc nfc /dev/nq-nci
+   chmod 0666 /dev/nq-nci
+
+   # change permission for goodix TP
+   chmod 0666 /dev/gtp_tools
+
+# aw882xx
+  chmod 0660 /dev/aw882xx_smartpa
+  chown system shell /dev/aw882xx_smartpa
+
+# Change ownership and permission for Bq2597x-standalone factory testing
+  chown system system /sys/class/power_supply/bq2597x-standalone/voltage_now
+  chown system system /sys/class/power_supply/bq2597x-standalone/charging_enabled
+  chmod 0644 /sys/class/power_supply/bq2597x-standalone/voltage_now
+  chmod 0664 /sys/class/power_supply/bq2597x-standalone/charging_enabled
+
+# Change ownership and permission for current_cmd factory testing
+  chown system system /proc/mtk_battery_cmd/current_cmd
+  chmod 0664 /proc/mtk_battery_cmd/current_cmd
+
+service capsense_reset /vendor/bin/capsense_reset
+    class core
+    user system
+    group system input
+    disabled
+
+on property:sys.boot_completed=1
+  start capsense_reset
+
+service fpc_ident /vendor/bin/hw/fpc_ident
+    class late_start
+    user system
+    group system input uhid
+    oneshot
+    disabled
+
+service chipone_ident /vendor/bin/hw/chipone_ident
+    class late_start
+    user system
+    group system input uhid
+    oneshot
+    disabled
+
+#fps dual sensor
+service vendor.ident-fps-sh /vendor/bin/init.oem.fingerprint.overlay.sh
+    class late_start
+    user root
+    group drmrpc system
+    oneshot
+
+service vendor.fps-hal-sh /vendor/bin/init.oem.fingerprint2.overlay.sh
+    class late_start
+    user root
+    group system
+    oneshot
+    disabled
+
+on fs
+     mkdir /mnt/vendor/persist/fps  0770 system system
+
+# Turn on led to indicate device on in factory mode
+on property:ro.bootmode=mot-factory
+    write /sys/class/leds/charging/brightness 255
